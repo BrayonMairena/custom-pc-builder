@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Proveedor {
+  id           Int           @id @default(autoincrement())
+  nombre       String
+  telefono     String
+  componentes  Componente[]
+}
+
+model Componente {
+  id           Int             @id @default(autoincrement())
+  nombre       String
+  tipo         String
+  marca        String
+  precio       Decimal         @db.Decimal(10, 2)
+  stock        Int             @default(0)
+  proveedorId  Int?
+  proveedor    Proveedor?      @relation(fields: [proveedorId], references: [id])
+  detalles     DetalleArmado[]
+}
+
+model Cliente {
+  id       Int       @id @default(autoincrement())
+  nombre   String
+  email    String    @unique
+  telefono String
+  armados  Armado[]
+}
+
+model Armado {
+  id          Int             @id @default(autoincrement())
+  nombre      String
+  fecha       DateTime        @default(now())
+  total       Decimal         @default(0) @db.Decimal(10, 2)
+  clienteId   Int
+  cliente     Cliente         @relation(fields: [clienteId], references: [id])
+  detalles    DetalleArmado[]
+}
+
+model DetalleArmado {
+  id            Int         @id @default(autoincrement())
+  cantidad      Int         @default(1)
+  armadoId      Int
+  armado        Armado      @relation(fields: [armadoId], references: [id], onDelete: Cascade)
+  componenteId  Int
+  componente    Componente  @relation(fields: [componenteId], references: [id])
+}
