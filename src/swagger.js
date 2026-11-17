@@ -13,8 +13,18 @@ const options = {
                 url: 'http://localhost:3000',
             },
         ],
+      
+        components: {
+            securitySchemes: {
+                bearerAuth: {
+                    type: 'http',
+                    scheme: 'bearer',
+                    bearerFormat: 'JWT',
+                }
+            }
+        },
+        security: [{ bearerAuth: [] }], // Aplica a todos los endpoints por defecto
     },
-    // ⚠️ ESTA LÍNEA ES LA CLAVE
     apis: ['./src/routes/*.js'], 
 };
 

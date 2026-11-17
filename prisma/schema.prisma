@@ -58,3 +58,12 @@ model DetalleArmado {
   componenteId  Int
   componente    Componente  @relation(fields: [componenteId], references: [id])
 }
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  email     String   @unique
+  password  String   // Aquí se guardará el hash, nunca la contraseña plana
+  rol       String   @default("VENDEDOR") // Roles: ADMIN, VENDEDOR
+  createdAt DateTime @default(now())
+}
