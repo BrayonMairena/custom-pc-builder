@@ -6,20 +6,20 @@ const armadoController = require('../controllers/armadoController');
  * @swagger
  * tags:
  *   name: Armados
- *   description: Gestión de ensamblaje de PCs personalizadas
+ *   description: Gestión de ensamblaje de PCs personalizadas y Facturación
  */
 
 /**
  * @swagger
  * /api/armados:
  *   get:
- *     summary: Obtiene todos los armados (PCs ensambladas)
+ *     summary: Obtiene todas las facturas/armados
  *     tags: [Armados]
  *     responses:
  *       200:
- *         description: Lista de armados exitosa
+ *         description: Lista de facturas exitosa
  *   post:
- *     summary: Crea un nuevo armado y descuenta stock automáticamente
+ *     summary: Crea una nueva factura (armado), descuenta stock y calcula IVA
  *     tags: [Armados]
  *     requestBody:
  *       required: true
@@ -51,11 +51,9 @@ const armadoController = require('../controllers/armadoController');
  *                       example: 1
  *     responses:
  *       201:
- *         description: Armado creado y stock actualizado
+ *         description: Factura generada, stock actualizado y totales calculados
  *       400:
  *         description: Stock insuficiente o datos inválidos
- *       404:
- *         description: Componente o cliente no encontrado
  */
 router.get('/', armadoController.getAllArmados);
 router.post('/', armadoController.createArmado);
@@ -64,7 +62,7 @@ router.post('/', armadoController.createArmado);
  * @swagger
  * /api/armados/{id}:
  *   get:
- *     summary: Obtiene un armado por ID
+ *     summary: Obtiene una factura por ID
  *     tags: [Armados]
  *     parameters:
  *       - in: path
@@ -74,10 +72,40 @@ router.post('/', armadoController.createArmado);
  *           type: integer
  *     responses:
  *       200:
- *         description: Armado encontrado
+ *         description: Factura encontrada
  *       404:
- *         description: Armado no encontrado
+ *         description: Factura no encontrada
  */
 router.get('/:id', armadoController.getArmadoById);
+
+/**
+ * @swagger
+ * /api/armados/{id}/pagar:
+ *   put:
+ *     summary: Procesa el pago de una factura de armado
+ *     tags: [Armados]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               metodoPago:
+ *                 type: string
+ *                 example: "Tarjeta de Crédito"
+ *     responses:
+ *       200:
+ *         description: Factura pagada exitosamente
+ *       404:
+ *         description: Factura no encontrada
+ */
+router.put('/:id/pagar', armadoController.pagarArmado);
 
 module.exports = router;

@@ -1,17 +1,6 @@
 const prisma = require('../lib/prisma');
 
-exports.getAllArmados = async (req, res) => {
-    try {
-        const armados = await prisma.armado.findMany({
-            include: { cliente: true, detalles: { include: { componente: true } } }
-        });
-        const respuesta = armados.map(a => ({ ...a, total: Number(a.total) }));
-        res.status(200).json(respuesta);
-    } catch (error) {
-        res.status(500).json({ error: 'Error al obtener armados' });
-    }
-};
-
+// 1. Crear un Armado / Factura
 exports.createArmado = async (req, res) => {
     try {
         const { nombre, clienteId, componentes } = req.body; 
@@ -20,9 +9,10 @@ exports.createArmado = async (req, res) => {
             return res.status(400).json({ error: 'Debe incluir al menos un componente' });
         }
 
-        let total = 0;
+        let subtotal = 0;
         const detallesData = [];
 
+        // Validar existencia, stock y calcular subtotal
         for (let item of componentes) {
             const comp = await prisma.componente.findUnique({ where: { id: parseInt(item.componenteId) } });
             
@@ -31,7 +21,8 @@ exports.createArmado = async (req, res) => {
                 return res.status(400).json({ error: `Stock insuficiente para ${comp.nombre}. Disponible: ${comp.stock}, Solicitado: ${item.cantidad}` });
             }
 
-            total += Number(comp.precio) * item.cantidad;
+            // Convertimos a Number porque Prisma usa Decimal en SQL Server
+            subtotal += Number(comp.precio) * item.cantidad;
             
             detallesData.push({
                 componenteId: parseInt(item.componenteId),
@@ -39,11 +30,23 @@ exports.createArmado = async (req, res) => {
             });
         }
 
+        // Cálculos de la Factura (IVA 15%)
+        const impuesto = subtotal * 0.15; 
+        const total = subtotal + impuesto;
+        
+        // Generar un número de factura único
+        const numeroFactura = `FAC-${Date.now()}`;
+
+        // Crear el Armado/Factura en la base de datos
         const nuevoArmado = await prisma.armado.create({
             data: {
+                numeroFactura,
                 nombre,
                 clienteId: parseInt(clienteId),
+                subtotal: subtotal,
+                impuesto: impuesto,
                 total: total,
+                estadoPago: "Pendiente", // Nace pendiente
                 detalles: {
                     create: detallesData
                 }
@@ -54,6 +57,7 @@ exports.createArmado = async (req, res) => {
             }
         });
 
+        // Descontar stock
         for (let item of componentes) {
             await prisma.componente.update({
                 where: { id: parseInt(item.componenteId) },
@@ -62,8 +66,8 @@ exports.createArmado = async (req, res) => {
         }
 
         res.status(201).json({ 
-            mensaje: 'Armado creado exitosamente y stock actualizado', 
-            armado: { ...nuevoArmado, total: Number(nuevoArmado.total) } 
+            mensaje: 'Factura generada y stock actualizado', 
+            factura: { ...nuevoArmado, subtotal: Number(nuevoArmado.subtotal), impuesto: Number(nuevoArmado.impuesto), total: Number(nuevoArmado.total) }
         });
 
     } catch (error) {
@@ -72,6 +76,26 @@ exports.createArmado = async (req, res) => {
     }
 };
 
+// 2. Obtener todas las facturas/armados
+exports.getAllArmados = async (req, res) => {
+    try {
+        const armados = await prisma.armado.findMany({
+            include: { cliente: true, detalles: { include: { componente: true } } }
+        });
+        // Limpiamos los decimales para que el JSON se vea bien
+        const respuesta = armados.map(a => ({ 
+            ...a, 
+            subtotal: Number(a.subtotal), 
+            impuesto: Number(a.impuesto), 
+            total: Number(a.total) 
+        }));
+        res.status(200).json(respuesta);
+    } catch (error) {
+        res.status(500).json({ error: 'Error al obtener armados' });
+    }
+};
+
+// 3. Obtener una factura por ID
 exports.getArmadoById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -80,8 +104,41 @@ exports.getArmadoById = async (req, res) => {
             include: { cliente: true, detalles: { include: { componente: true } } }
         });
         if (!armado) return res.status(404).json({ error: 'Armado no encontrado' });
-        res.status(200).json({ ...armado, total: Number(armado.total) });
+        res.status(200).json({ 
+            ...armado, 
+            subtotal: Number(armado.subtotal), 
+            impuesto: Number(armado.impuesto), 
+            total: Number(armado.total) 
+        });
     } catch (error) {
         res.status(500).json({ error: 'Error al buscar armado' });
+    }
+};
+
+// 4. Procesar el pago de la factura
+exports.pagarArmado = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { metodoPago } = req.body; // Ej: "Tarjeta", "Efectivo"
+
+        const armadoPagado = await prisma.armado.update({
+            where: { id: parseInt(id) },
+            data: { 
+                estadoPago: "Pagado",
+                metodoPago: metodoPago || "Efectivo"
+            }
+        });
+
+        res.status(200).json({ 
+            mensaje: 'Pago procesado exitosamente', 
+            factura: { 
+                ...armadoPagado, 
+                subtotal: Number(armadoPagado.subtotal), 
+                impuesto: Number(armadoPagado.impuesto), 
+                total: Number(armadoPagado.total) 
+            } 
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al procesar el pago' });
     }
 };

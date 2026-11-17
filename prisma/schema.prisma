@@ -36,13 +36,18 @@ model Cliente {
 }
 
 model Armado {
-  id          Int             @id @default(autoincrement())
-  nombre      String
-  fecha       DateTime        @default(now())
-  total       Decimal         @default(0) @db.Decimal(10, 2)
-  clienteId   Int
-  cliente     Cliente         @relation(fields: [clienteId], references: [id])
-  detalles    DetalleArmado[]
+  id             Int             @id @default(autoincrement())
+  numeroFactura  String          @unique
+  nombre         String
+  fecha          DateTime        @default(now())
+  subtotal       Decimal         @default(0) @db.Decimal(10, 2)
+  impuesto       Decimal         @default(0) @db.Decimal(10, 2)
+  total          Decimal         @default(0) @db.Decimal(10, 2)
+  estadoPago     String          @default("Pendiente")
+  metodoPago     String?
+  clienteId      Int
+  cliente        Cliente         @relation(fields: [clienteId], references: [id])
+  detalles       DetalleArmado[]
 }
 
 model DetalleArmado {
